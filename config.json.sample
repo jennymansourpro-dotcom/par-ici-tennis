@@ -3,11 +3,9 @@
     "email": "user.name@host.com",
     "password": "12345"
   },
-  "locations": [
-    "Valeyre",
-    "Suzanne Lenglen",
-    "Poliveau"
-  ],
+  "locations": {
+    "Edouard Pailleron": [2]
+  },
   "date": "9/10/2021",
   "hours": [
     "14",
