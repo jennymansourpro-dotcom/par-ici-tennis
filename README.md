@@ -78,14 +78,26 @@ Send the reservation as a calendar invitation (`.ics`, `METHOD:REQUEST`) by emai
 }
 ```
 
-Provide SMTP credentials via environment variables (GitHub secrets):
+Provide sending credentials via environment variables (GitHub secrets). Two modes are supported:
 
-- `SMTP_PASSWORD` (required) — e.g. a Gmail [app password](https://support.google.com/accounts/answer/185833)
-- `SMTP_USER` (optional, defaults to `email.from`)
-- `SMTP_HOST` (optional, default `smtp.gmail.com`)
-- `SMTP_PORT` (optional, default `465`)
+**Gmail via OAuth2 (recommended)** — sends genuinely as your Google account with Gmail's own DKIM:
 
-If `SMTP_PASSWORD` is not set, the email step is skipped silently.
+- `GMAIL_USER` — the sending Google address (e.g. `jenny@getgranit.ai`)
+- `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` — from a Google Cloud OAuth client
+- `GMAIL_REFRESH_TOKEN` — a refresh token for the `https://mail.google.com/` scope
+
+One-time token setup:
+1. [Google Cloud Console](https://console.cloud.google.com/) → create a project → enable the **Gmail API**.
+2. Configure the **OAuth consent screen** (Internal for Workspace) and add the scope `https://mail.google.com/`.
+3. Create an **OAuth client ID** (type: Web application) and add the redirect URI `https://developers.google.com/oauthplayground`.
+4. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/), click the gear → *Use your own OAuth credentials*, paste the client ID/secret, authorize the `https://mail.google.com/` scope as your sending account, then exchange the code for a **refresh token**.
+5. Add the four secrets above to your repository.
+
+**Plain SMTP (fallback)** — used only if the Gmail OAuth2 secrets are absent:
+
+- `SMTP_PASSWORD` (required), `SMTP_USER`, `SMTP_HOST` (default `smtp.gmail.com`), `SMTP_PORT` (default `465`)
+
+If neither mode is configured, the email step is skipped silently.
 
 ### Ntfy notifications (optional)
 
