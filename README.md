@@ -56,6 +56,8 @@ Choose the format that best matches your preferences.
 
 - `date` (optional) a string representing a date formatted D/M/YYYY, do not set the date to automatically book 6 days in the future as soon as the reservation slots open
 
+- `weekday` (optional) a weekday name (`monday`, `tuesday`, …) or number (`0` = Sunday … `6` = Saturday). When set (and `date` is not), the script always targets the next occurrence of that weekday. If that day is not open for reservation yet (reservations open 6 days ahead), the script exits without booking. This lets you run the workflow every morning: it books the target day as soon as it opens and does nothing the rest of the time. Ignored when `date` is set.
+
 - `hours` a list of hours ordered by preference
 
 - `priceType` an array containing price types you can book `Tarif plein` and/or `Tarif réduit`

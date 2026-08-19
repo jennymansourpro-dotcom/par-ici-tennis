@@ -8,6 +8,41 @@ import { notify } from './lib/ntfy.js'
 
 dayjs.extend(customParseFormat)
 
+// Reservations open OPEN_WINDOW_DAYS days ahead on tennis.paris.fr
+const OPEN_WINDOW_DAYS = 6
+
+const WEEKDAYS = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+  thursday: 4, friday: 5, saturday: 6,
+}
+
+// Decide which date the script should try to book.
+// Priority: an explicit config.date, else the next occurrence of config.weekday
+// (e.g. "wednesday"), else the furthest bookable day (today + OPEN_WINDOW_DAYS).
+const resolveTargetDate = () => {
+  if (config.date) {
+    return dayjs(config.date, 'D/MM/YYYY')
+  }
+
+  if (config.weekday !== undefined && config.weekday !== null) {
+    const targetDow = typeof config.weekday === 'number'
+      ? config.weekday
+      : WEEKDAYS[String(config.weekday).trim().toLowerCase()]
+
+    if (targetDow === undefined || Number.isNaN(targetDow)) {
+      throw new Error(`Invalid "weekday" in config: ${config.weekday}`)
+    }
+
+    const today = dayjs().startOf('day')
+    let daysUntil = (targetDow - today.day() + 7) % 7
+    // Never target today itself: always aim for the upcoming occurrence.
+    if (daysUntil === 0) daysUntil = 7
+    return today.add(daysUntil, 'days')
+  }
+
+  return dayjs().startOf('day').add(OPEN_WINDOW_DAYS, 'days')
+}
+
 const bookTennis = async () => {
   const DRY_RUN_MODE = process.argv.includes('--dry-run')
   if (DRY_RUN_MODE) {
@@ -16,6 +51,15 @@ const bookTennis = async () => {
   }
 
   console.log(`${dayjs().format()} - Starting searching tennis`)
+
+  const date = resolveTargetDate()
+  const daysAhead = date.startOf('day').diff(dayjs().startOf('day'), 'days')
+  if (daysAhead < 0 || daysAhead > OPEN_WINDOW_DAYS) {
+    console.log(`${dayjs().format()} - Target date ${date.format('DD/MM/YYYY')} is not open for reservation yet (opens ${OPEN_WINDOW_DAYS} days ahead), nothing to do`)
+    return
+  }
+  console.log(`${dayjs().format()} - Target date: ${date.format('DD/MM/YYYY')}`)
+
   const browser = await chromium.launch({ headless: true, slowMo: 0, timeout: 90000 })
 
   console.log(`${dayjs().format()} - Browser started`)
@@ -50,7 +94,6 @@ const bookTennis = async () => {
 
       // select date
       await page.click('#when')
-      const date = config.date ? dayjs(config.date, 'D/MM/YYYY') : dayjs().add(6, 'days')
       await page.waitForSelector(`[dateiso="${date.format('DD/MM/YYYY')}"]`)
       await page.click(`[dateiso="${date.format('DD/MM/YYYY')}"]`)
       await page.waitForSelector('.date-picker', { state: 'hidden' })
