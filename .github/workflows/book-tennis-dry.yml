@@ -30,10 +30,9 @@ jobs:
           set -euo pipefail
           if [ -n "${CONFIG_JSON:-}" ]; then
             printf "%s" "$CONFIG_JSON" > config.json
-            echo "config.json created from CONFIG_JSON secret"
+            echo "config.json created from CONFIG_JSON variable"
           else
-            echo "ERROR: Missing CONFIG_JSON secret." >&2
-            exit 1
+            echo "CONFIG_JSON variable not set; using config.json committed in the repository"
           fi
 
       - name: Install dependencies

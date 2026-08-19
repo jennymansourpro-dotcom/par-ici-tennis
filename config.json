@@ -1,0 +1,22 @@
+{
+  "locations": {
+    "Edouard Pailleron": [2]
+  },
+  "hours": [
+    "19"
+  ],
+  "priceType": [
+    "Tarif plein",
+    "Tarif réduit"
+  ],
+  "courtType": [
+    "Découvert",
+    "Couvert"
+  ],
+  "players": [
+    {
+      "lastName": "Kellal",
+      "firstName": "Mehdi"
+    }
+  ]
+}
