@@ -27,5 +27,13 @@
   "ntfy": {
     "enable": false,
     "topic": "YOUR-OWN-TOPIC"
+  },
+  "email": {
+    "enable": false,
+    "from": "you@example.com",
+    "to": [
+      "you@example.com",
+      "partner@example.com"
+    ]
   }
 }

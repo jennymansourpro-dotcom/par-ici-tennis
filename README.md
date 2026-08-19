@@ -66,6 +66,27 @@ Choose the format that best matches your preferences.
 
 - `players` list of players 3 max (without you)
 
+### Email invitation (optional)
+
+Send the reservation as a calendar invitation (`.ics`, `METHOD:REQUEST`) by email to one or more recipients when a booking succeeds. Add to your `config.json`:
+
+```json
+"email": {
+  "enable": true,
+  "from": "you@example.com",
+  "to": ["you@example.com", "partner@example.com"]
+}
+```
+
+Provide SMTP credentials via environment variables (GitHub secrets):
+
+- `SMTP_PASSWORD` (required) — e.g. a Gmail [app password](https://support.google.com/accounts/answer/185833)
+- `SMTP_USER` (optional, defaults to `email.from`)
+- `SMTP_HOST` (optional, default `smtp.gmail.com`)
+- `SMTP_PORT` (optional, default `465`)
+
+If `SMTP_PASSWORD` is not set, the email step is skipped silently.
+
 ### Ntfy notifications (optional)
 
 You can configure the script to send notifications with the reservation details and the ics file via [ntfy](https://ntfy.sh), a simple pub-sub notification service.

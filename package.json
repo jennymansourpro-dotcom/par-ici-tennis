@@ -30,6 +30,7 @@
     "@gradio/client": "^1.19.1",
     "dayjs": "^1.11.20",
     "ics": "^3.12.0",
+    "nodemailer": "^6.10.1",
     "playwright": "^1.60.0"
   },
   "devDependencies": {

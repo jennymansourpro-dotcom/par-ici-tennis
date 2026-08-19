@@ -5,6 +5,7 @@ import { writeFileSync } from 'fs'
 import { createEvent } from 'ics'
 import { config } from './staticFiles.js'
 import { notify } from './lib/ntfy.js'
+import { sendInvite } from './lib/email.js'
 
 dayjs.extend(customParseFormat)
 
@@ -207,13 +208,30 @@ const bookTennis = async () => {
       const hour = hourMatch ? Number(hourMatch[1]) : 12
       const start = [year, month, day, hour, 0]
       const duration = { hours: 1, minutes: 0 }
+      const emailConfig = config.email || {}
+      const organizerEmail = emailConfig.from || process.env.SMTP_USER
+      const recipients = emailConfig.to || []
       const event = {
         start,
+        startInputType: 'local',
+        startOutputType: 'local',
         duration,
         title: 'Réservation Tennis',
         description: `Court: ${court}\nAdresse: ${address}`,
         location: address,
         status: 'CONFIRMED',
+      }
+      if (organizerEmail) {
+        event.organizer = { name: 'Par ici tennis', email: organizerEmail }
+      }
+      if (recipients.length > 0) {
+        event.method = 'REQUEST'
+        event.attendees = recipients.map(email => ({
+          email,
+          rsvp: true,
+          role: 'REQ-PARTICIPANT',
+          partstat: 'NEEDS-ACTION',
+        }))
       }
 
       const createdEvent = createEvent(event)
@@ -233,6 +251,16 @@ const bookTennis = async () => {
             domain: config?.ntfy?.domain || process.env.NTFY_DOMAIN,
             topic: config?.ntfy?.topic || process.env.NTFY_TOPIC,
           })
+      }
+
+      if (emailConfig.enable !== false && recipients.length > 0) {
+        await sendInvite({
+          from: organizerEmail,
+          to: recipients,
+          subject: `Réservation Tennis confirmée - ${dateStr}`,
+          text: `Réservation confirmée.\n\n${court}\n${address}\n${dateStr}`,
+          icsContent: value,
+        })
       }
 
       break

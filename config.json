@@ -19,5 +19,13 @@
       "lastName": "Kellal",
       "firstName": "Mehdi"
     }
-  ]
+  ],
+  "email": {
+    "enable": true,
+    "from": "jenny@getgranit.ai",
+    "to": [
+      "jenny@getgranit.ai",
+      "mehdi.kellal@gmail.com"
+    ]
+  }
 }
