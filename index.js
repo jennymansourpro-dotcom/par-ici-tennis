@@ -52,13 +52,23 @@ const bookTennis = async () => {
 
   console.log(`${dayjs().format()} - Starting searching tennis`)
 
-  const date = resolveTargetDate()
-  const daysAhead = date.startOf('day').diff(dayjs().startOf('day'), 'days')
-  if (daysAhead < 0 || daysAhead > OPEN_WINDOW_DAYS) {
-    console.log(`${dayjs().format()} - Target date ${date.format('DD/MM/YYYY')} is not open for reservation yet (opens ${OPEN_WINDOW_DAYS} days ahead), nothing to do`)
+  const targetDate = resolveTargetDate()
+  const daysAhead = targetDate.startOf('day').diff(dayjs().startOf('day'), 'days')
+  const isOpen = daysAhead >= 0 && daysAhead <= OPEN_WINDOW_DAYS
+
+  if (!isOpen && !DRY_RUN_MODE) {
+    console.log(`${dayjs().format()} - Target date ${targetDate.format('DD/MM/YYYY')} is not open for reservation yet (opens ${OPEN_WINDOW_DAYS} days ahead), nothing to do`)
     return
   }
-  console.log(`${dayjs().format()} - Target date: ${date.format('DD/MM/YYYY')}`)
+
+  // In dry-run, if the target day is not open yet, test against the furthest
+  // bookable day so the configuration can still be exercised end-to-end.
+  const date = isOpen ? targetDate : dayjs().startOf('day').add(OPEN_WINDOW_DAYS, 'days')
+  if (isOpen) {
+    console.log(`${dayjs().format()} - Target date: ${date.format('DD/MM/YYYY')}`)
+  } else {
+    console.log(`${dayjs().format()} - DRY RUN: target ${targetDate.format('DD/MM/YYYY')} not open yet, testing against ${date.format('DD/MM/YYYY')} instead`)
+  }
 
   const browser = await chromium.launch({ headless: true, slowMo: 0, timeout: 90000 })
 
