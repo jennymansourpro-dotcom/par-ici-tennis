@@ -6,13 +6,8 @@
   "locations": {
     "Edouard Pailleron": [2]
   },
-  "date": "9/10/2021",
   "hours": [
-    "14",
-    "15",
-    "16",
-    "10",
-    "11"
+    "19"
   ],
   "priceType": [
     "Tarif plein",
@@ -24,12 +19,8 @@
   ],
   "players": [
     {
-      "lastName": "Lastname1",
-      "firstName": "Firstname1"
-    },
-    {
-      "lastName": "Lastname2",
-      "firstName": "Firstname2"
+      "lastName": "Kellal",
+      "firstName": "Mehdi"
     }
   ],
   "ntfy": {
