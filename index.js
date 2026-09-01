@@ -270,6 +270,11 @@ const bookTennis = async () => {
       } catch (err) {
         console.log(`${dayjs().format()} - Error while searching at ${logLocation}, trying next location`)
         console.log(err.message || err)
+        // Help debug bad location names: show what the site actually suggested
+        const suggestions = await page.locator('.tokens-suggestions-list-element').allInnerTexts().catch(() => [])
+        if (suggestions.length) {
+          console.log(`Suggestions displayed by the site: ${suggestions.join(' | ')}`)
+        }
       }
     }
   } catch (e) {
