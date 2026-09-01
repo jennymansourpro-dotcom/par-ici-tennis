@@ -2,9 +2,17 @@ name: Tennis booking
 
 on:
   schedule:
-    # Run 1 hour early to absorb GitHub Actions scheduling delays (often 15-40 min);
-    # the "Wait 08:00 Europe/Paris" step then holds the run until 08:00 sharp.
-    - cron: '0 7 * * *'
+    # GitHub Actions cron is best-effort and can fire hours late, especially at
+    # round minutes/hours. Three staggered triggers at odd minutes, well before
+    # 08:00, so at least one lands early; the "Wait 08:00 Europe/Paris" step then
+    # holds whichever run started first until 08:00 sharp. The concurrency group
+    # (no cancel-in-progress) makes late duplicates harmless: they queue behind
+    # the active run and find the slot already booked.
+    - cron: '11 5 * * *'
+      timezone: 'Europe/Paris'
+    - cron: '23 6 * * *'
+      timezone: 'Europe/Paris'
+    - cron: '47 6 * * *'
       timezone: 'Europe/Paris'
   workflow_dispatch:
 
@@ -13,7 +21,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   run:
