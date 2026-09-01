@@ -62,8 +62,10 @@ jobs:
       - name: Install Playwright browser (only-shell)
         run: npx playwright install chromium --only-shell
 
+      # Applies to scheduled AND dispatched runs (external triggers like
+      # cron-job.org call workflow_dispatch): if started before 08:00 Paris,
+      # hold until 08:00 sharp; if started after, continue immediately.
       - name: Wait 08:00 Europe/Paris
-        if: github.event_name == 'schedule'
         run: npm run wait
 
       - name: Run script
