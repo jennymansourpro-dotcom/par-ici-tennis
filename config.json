@@ -1,10 +1,18 @@
 {
   "locations": {
-    "Edouard Pailleron": [2]
+    "Edouard Pailleron": [],
+    "Jandelle": [],
+    "Neuve Saint Pierre": [],
+    "Neuve Saint-Pierre": [],
+    "Neuve St Pierre": []
   },
   "weekday": "wednesday",
   "hours": [
-    "19"
+    "21",
+    "20",
+    "19",
+    "8",
+    "08"
   ],
   "priceType": [
     "Tarif plein",
