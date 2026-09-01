@@ -4,7 +4,7 @@
     "Jandelle": [],
     "NEUVE SAINT PIERRE": []
   },
-  "weekday": "wednesday",
+  "weekday": ["wednesday", "thursday", "monday"],
   "hours": [
     "21",
     "20",
