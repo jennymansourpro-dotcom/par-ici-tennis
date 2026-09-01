@@ -6,11 +6,10 @@
   },
   "weekday": ["wednesday", "thursday", "monday"],
   "hours": [
-    "21",
     "20",
+    "21",
     "19",
-    "8",
-    "08"
+    "18"
   ],
   "priceType": [
     "Tarif plein",
