@@ -62,12 +62,8 @@ jobs:
       - name: Install Playwright browser (only-shell)
         run: npx playwright install chromium --only-shell
 
-      # Applies to scheduled AND dispatched runs (external triggers like
-      # cron-job.org call workflow_dispatch): if started before 08:00 Paris,
-      # hold until 08:00 sharp; if started after, continue immediately.
-      - name: Wait 08:00 Europe/Paris
-        run: npm run wait
-
+      # The 08:00 wait now lives inside index.js, AFTER login: the script idles
+      # until 07:55, logs in, then fires the search at 08:00:00 Paris sharp.
       - name: Run script
         env:
           ACCOUNT_EMAIL: ${{ secrets.ACCOUNT_EMAIL }}

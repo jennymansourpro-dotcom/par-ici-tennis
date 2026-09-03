@@ -1,6 +1,8 @@
 import { chromium } from 'playwright'
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat.js'
+import utc from 'dayjs/plugin/utc.js'
+import timezone from 'dayjs/plugin/timezone.js'
 import { writeFileSync } from 'fs'
 import { createEvent } from 'ics'
 import { config } from './staticFiles.js'
@@ -8,9 +10,24 @@ import { notify } from './lib/ntfy.js'
 import { sendInvite } from './lib/email.js'
 
 dayjs.extend(customParseFormat)
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 // Reservations open OPEN_WINDOW_DAYS days ahead on tennis.paris.fr
 const OPEN_WINDOW_DAYS = 6
+
+// New slots are released every day at 08:00 Paris time
+const RELEASE_TZ = 'Europe/Paris'
+
+// Sleep until the given Paris time today; no-op if that time is already past.
+const waitUntilParis = async (hour, minute) => {
+  const now = dayjs().tz(RELEASE_TZ)
+  const target = now.hour(hour).minute(minute).second(0).millisecond(0)
+  if (now.isBefore(target)) {
+    console.log(`${dayjs().format()} - Waiting until ${target.format('HH:mm')} Paris (${target.diff(now)} ms)`)
+    await new Promise(resolve => setTimeout(resolve, target.diff(now)))
+  }
+}
 
 const WEEKDAYS = {
   sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
@@ -76,6 +93,13 @@ const bookTennis = async () => {
   const dates = openDates.length > 0 ? openDates : [today.add(OPEN_WINDOW_DAYS, 'days')]
   console.log(`${dayjs().format()} - Target date(s), by preference: ${dates.map(d => d.format('DD/MM/YYYY')).join(', ')}`)
 
+  // Stay idle until shortly before the 08:00 release, then log in so the
+  // search itself can fire at 08:00:00 sharp (a fresh session, logged in ~5
+  // minutes early, beats logging in after the gun by ~8 seconds).
+  if (!DRY_RUN_MODE) {
+    await waitUntilParis(7, 55)
+  }
+
   const browser = await chromium.launch({ headless: true, slowMo: 0, timeout: 90000 })
 
   console.log(`${dayjs().format()} - Browser started`)
@@ -94,6 +118,11 @@ const bookTennis = async () => {
 
   // wait for login redirection before continue
   await page.waitForSelector('.main-informations')
+
+  // Logged in: hold here and start searching at 08:00:00 Paris sharp.
+  if (!DRY_RUN_MODE) {
+    await waitUntilParis(8, 0)
+  }
 
   try {
     const locations = !Array.isArray(config.locations) ? Object.keys(config.locations) : config.locations
