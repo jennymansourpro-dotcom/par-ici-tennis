@@ -90,8 +90,17 @@ const bookTennis = async () => {
 
   // In dry-run, if no target day is open yet, test against the furthest
   // bookable day so the configuration can still be exercised end-to-end.
-  const dates = openDates.length > 0 ? openDates : [today.add(OPEN_WINDOW_DAYS, 'days')]
-  console.log(`${dayjs().format()} - Target date(s), by preference: ${dates.map(d => d.format('DD/MM/YYYY')).join(', ')}`)
+  const candidates = openDates.length > 0 ? openDates : [today.add(OPEN_WINDOW_DAYS, 'days')]
+
+  // The date whose slots are released this morning (today + OPEN_WINDOW_DAYS)
+  // is a race decided in seconds: try it first. Days already open for a while
+  // only hold leftover cancellations, which do not vanish in seconds, so they
+  // can be swept afterwards, in preference order.
+  const dates = [
+    ...candidates.filter(d => d.startOf('day').diff(today, 'days') === OPEN_WINDOW_DAYS),
+    ...candidates.filter(d => d.startOf('day').diff(today, 'days') !== OPEN_WINDOW_DAYS),
+  ]
+  console.log(`${dayjs().format()} - Target date(s), fresh release first: ${dates.map(d => d.format('DD/MM/YYYY')).join(', ')}`)
 
   // Stay idle until shortly before the 08:00 release, then log in so the
   // search itself can fire at 08:00:00 sharp (a fresh session, logged in ~5
