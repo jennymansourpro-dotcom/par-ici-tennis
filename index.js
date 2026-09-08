@@ -196,6 +196,12 @@ const bookTennis = async () => {
 
           if (await page.title() !== 'Paris | TENNIS - Reservation') {
             console.log(`${dayjs().format()} - Failed to find reservation for ${logLocation}`)
+            // Diagnostic: list the bookable slots the site actually displayed,
+            // to tell "already taken by others" apart from "never offered".
+            const offered = await page.locator('[datedeb]')
+              .evaluateAll(els => [...new Set(els.map(el => el.getAttribute('datedeb')))])
+              .catch(() => [])
+            console.log(`Slots displayed by the site: ${offered.length > 0 ? offered.join(' | ') : 'none'}`)
             continue
           }
 
