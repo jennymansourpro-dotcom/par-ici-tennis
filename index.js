@@ -254,12 +254,25 @@ const bookTennis = async () => {
           await submit.evaluate(el => el.classList.remove('hide'))
           await submit.click()
 
-          await page.waitForSelector('.confirmReservation')
+          // Paid bookings land on a .confirmReservation page; free ("Gratuité")
+          // bookings land on a recap page with a cancel button instead.
+          await page.locator('.confirmReservation')
+            .or(page.getByText('Annuler ma réservation'))
+            .first()
+            .waitFor()
 
-          // Extract reservation details
-          const address = (await page.locator('.address').textContent()).trim().replace(/( ){2,}/g, ' ')
-          const dateStr = (await page.locator('.date').textContent()).trim().replace(/( ){2,}/g, ' ')
-          const court = (await page.locator('.court').textContent()).trim().replace(/( ){2,}/g, ' ')
+          // Extract reservation details, falling back to known values on the
+          // free-booking recap page whose markup differs.
+          const grab = async (selector) => {
+            try {
+              return (await page.locator(selector).first().textContent({ timeout: 3000 })).trim().replace(/( ){2,}/g, ' ')
+            } catch {
+              return null
+            }
+          }
+          const address = await grab('.address') || location
+          const dateStr = await grab('.date') || `${date.format('DD/MM/YYYY')} - ${selectedHour}h`
+          const court = await grab('.court') || `${location} - réservation confirmée`
 
           if (!process.env.GITHUB_ACTIONS) {
             console.log(`${dayjs().format()} - Réservation faite : ${address}`)
