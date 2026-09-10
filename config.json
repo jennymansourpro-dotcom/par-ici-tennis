@@ -6,7 +6,11 @@
   "weekday": [
     "wednesday",
     "thursday",
-    "monday"
+    "monday",
+    "tuesday",
+    "friday",
+    "saturday",
+    "sunday"
   ],
   "excludeDates": [
     "16/09/2026"
