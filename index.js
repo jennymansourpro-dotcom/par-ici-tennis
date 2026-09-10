@@ -86,10 +86,13 @@ const bookTennis = async () => {
 
   const targetDates = resolveTargetDates()
   const today = dayjs().startOf('day')
+  // Dates listed in config.excludeDates (D/MM/YYYY) are never booked,
+  // e.g. a week where the usual day is not playable.
+  const excludedDates = (config.excludeDates || []).map(d => dayjs(d, 'D/MM/YYYY').format('DD/MM/YYYY'))
   // Keep only dates already open for reservation, preserving preference order.
   const openDates = targetDates.filter((d) => {
     const daysAhead = d.startOf('day').diff(today, 'days')
-    return daysAhead >= 0 && daysAhead <= OPEN_WINDOW_DAYS
+    return daysAhead >= 0 && daysAhead <= OPEN_WINDOW_DAYS && !excludedDates.includes(d.format('DD/MM/YYYY'))
   })
 
   if (openDates.length === 0 && !DRY_RUN_MODE) {

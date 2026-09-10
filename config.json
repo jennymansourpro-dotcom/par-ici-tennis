@@ -8,6 +8,9 @@
     "thursday",
     "monday"
   ],
+  "excludeDates": [
+    "16/09/2026"
+  ],
   "hours": [
     "20",
     "21",
