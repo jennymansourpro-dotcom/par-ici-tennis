@@ -19,6 +19,15 @@ const OPEN_WINDOW_DAYS = 6
 // New slots are released every day at 08:00 Paris time
 const RELEASE_TZ = 'Europe/Paris'
 
+// Compare site labels (price type, court type) leniently: strip tags and
+// non-breaking spaces, collapse whitespace, ignore case.
+const normalizeLabel = str => (str || '')
+  .replace(/<[^>]*>/g, ' ')
+  .replace(/&nbsp;|\u00a0/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase()
+
 // Sleep until the given Paris time today; no-op if that time is already past.
 const waitUntilParis = async (hour, minute) => {
   const now = dayjs().tz(RELEASE_TZ)
@@ -182,8 +191,11 @@ const bookTennis = async () => {
                   }
                 }
 
-                const [priceType, courtType] = (await page.locator(`.row.tennis-court:has(${bookSlotButton})`).locator('.price-description').innerHTML()).split('<br>')
-                if (!config.priceType.includes(priceType) || !config.courtType.includes(courtType)) {
+                const [priceType, courtType] = (await page.locator(`.row.tennis-court:has(${bookSlotButton})`).locator('.price-description').innerHTML())
+                  .split(/<br\s*\/?>/i)
+                  .map(normalizeLabel)
+                if (!config.priceType.some(p => normalizeLabel(p) === priceType) || !config.courtType.some(c => normalizeLabel(c) === courtType)) {
+                  console.log(`Slot ${hour}h at ${logLocation} skipped by price/court filter: price="${priceType}", type="${courtType}"`)
                   continue
                 }
                 selectedHour = hour
