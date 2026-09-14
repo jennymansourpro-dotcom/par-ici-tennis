@@ -163,6 +163,15 @@ const bookTennis = async () => {
           await page.waitForSelector(`.tokens-suggestions-list-element >> text="${location}"`)
           await page.click(`.tokens-suggestions-list-element >> text="${location}"`)
 
+          // The suggestions dropdown sometimes stays open after the click and
+          // swallows the clicks aimed at the date picker (13/09 run: 90s lost
+          // retrying the date click). Make sure it is gone before moving on.
+          const suggestionsList = page.locator('.tokens-suggestions-list-element').first()
+          await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
+            await page.keyboard.press('Escape')
+            await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {})
+          })
+
           // select date
           await page.click('#when')
           await page.waitForSelector(`[dateiso="${date.format('DD/MM/YYYY')}"]`)
