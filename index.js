@@ -153,29 +153,47 @@ const bookTennis = async () => {
     await page.waitForSelector(`.tokens-suggestions-list-element >> text="${location}"`)
     await page.click(`.tokens-suggestions-list-element >> text="${location}"`)
 
-    // The suggestions dropdown sometimes stays open after the click and
-    // swallows the clicks aimed at the date picker (13/09 run: 90s lost
-    // retrying the date click). Make sure it is gone before moving on.
+    // The suggestions dropdown closes on the click, then REOPENS ~1s later
+    // when a late autocomplete response lands. Opened too early, the date
+    // picker gets closed again by that reopen (16/09 dry run: every Pailleron
+    // search hung 90s on an invisible date cell). Let the late response land,
+    // then close whatever it reopened.
+    await page.waitForTimeout(1800)
     const suggestionsList = page.locator('.tokens-suggestions-list-element').first()
-    await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
+    if (await suggestionsList.isVisible().catch(() => false)) {
       await page.keyboard.press('Escape')
-      await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {})
-    })
+      await suggestionsList.waitFor({ state: 'hidden', timeout: 1500 }).catch(() => {})
+    }
 
-    // select date
-    await page.click('#when')
+    // Select the date, retrying: the dropdown can still close the picker or
+    // intercept the click (13/09 run), and Escape does not always dismiss
+    // it — force-hide its container before the next attempt.
     const dateCell = `[dateiso="${date.format('DD/MM/YYYY')}"]`
-    if (dateTimeout) {
+    const attempts = dateTimeout ? 2 : 4
+    const timeout = dateTimeout || 5000
+    let picked = false
+    for (let attempt = 1; attempt <= attempts && !picked; attempt++) {
       try {
-        await page.click(dateCell, { timeout: dateTimeout })
-        await page.waitForSelector('.date-picker', { state: 'hidden', timeout: dateTimeout })
+        if (!(await page.locator(dateCell).first().isVisible().catch(() => false))) {
+          await page.click('#when', { timeout })
+        }
+        await page.click(dateCell, { timeout })
+        await page.waitForSelector('.date-picker', { state: 'hidden', timeout })
+        picked = true
       } catch {
+        await page.keyboard.press('Escape').catch(() => {})
+        await page.evaluate(() => {
+          // eslint-disable-next-line no-undef
+          document.querySelectorAll('.tokens-suggestion-selector').forEach(el => { el.style.display = 'none' })
+        }).catch(() => {})
+      }
+    }
+    if (!picked) {
+      if (dateTimeout) {
         return false
       }
-      return true
+      throw new Error(`Could not select ${date.format('DD/MM/YYYY')} in the date picker`)
     }
-    await page.click(dateCell)
-    await page.waitForSelector('.date-picker', { state: 'hidden' })
     return true
   }
 
