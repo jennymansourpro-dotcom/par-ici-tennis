@@ -140,13 +140,66 @@ const bookTennis = async () => {
   // wait for login redirection before continue
   await page.waitForSelector('.main-informations')
 
-  // Logged in: hold here and start searching at 08:00:00 Paris sharp.
+  const locations = !Array.isArray(config.locations) ? Object.keys(config.locations) : config.locations
+
+  // Fill the search form (location + date), leaving only the "Rechercher"
+  // click to the caller. With `dateTimeout` set, a date the picker does not
+  // offer (yet) makes the fill return false instead of throwing.
+  const fillSearchForm = async (location, date, { dateTimeout } = {}) => {
+    await page.goto('https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau#!')
+
+    // select tennis location
+    await page.locator('.tokens-input-text').pressSequentially(`${location} `)
+    await page.waitForSelector(`.tokens-suggestions-list-element >> text="${location}"`)
+    await page.click(`.tokens-suggestions-list-element >> text="${location}"`)
+
+    // The suggestions dropdown sometimes stays open after the click and
+    // swallows the clicks aimed at the date picker (13/09 run: 90s lost
+    // retrying the date click). Make sure it is gone before moving on.
+    const suggestionsList = page.locator('.tokens-suggestions-list-element').first()
+    await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
+      await page.keyboard.press('Escape')
+      await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {})
+    })
+
+    // select date
+    await page.click('#when')
+    const dateCell = `[dateiso="${date.format('DD/MM/YYYY')}"]`
+    if (dateTimeout) {
+      try {
+        await page.click(dateCell, { timeout: dateTimeout })
+        await page.waitForSelector('.date-picker', { state: 'hidden', timeout: dateTimeout })
+      } catch {
+        return false
+      }
+      return true
+    }
+    await page.click(dateCell)
+    await page.waitForSelector('.date-picker', { state: 'hidden' })
+    return true
+  }
+
+  // Logged in: pre-fill the search form for the top-priority date and
+  // location while waiting, so that at 08:00:00 sharp only the "Rechercher"
+  // click remains (results at ~08:00:01 instead of ~08:00:06 — five runs in
+  // a row showed evening rows still on screen at +6s but no court left).
+  // The freshly released date may not be offered by the picker before 08:00;
+  // in that case only the location is pre-filled and the date is picked
+  // after the gun.
+  let preloadReady = false
+  let preloadDateSelected = false
   if (!DRY_RUN_MODE) {
+    try {
+      preloadDateSelected = await fillSearchForm(locations[0], dates[0], { dateTimeout: 3000 })
+      preloadReady = true
+      console.log(`${dayjs().format()} - Search form pre-filled (date selected: ${preloadDateSelected})`)
+    } catch (err) {
+      console.log(`${dayjs().format()} - Pre-fill failed (${err.message}), falling back to the normal flow`)
+    }
     await waitUntilParis(8, 0)
   }
 
   try {
-    const locations = !Array.isArray(config.locations) ? Object.keys(config.locations) : config.locations
     datesLoop:
     for (const date of dates) {
       console.log(`${dayjs().format()} - Trying date ${date.format('DD/MM/YYYY')}`)
@@ -156,27 +209,23 @@ const bookTennis = async () => {
         // A failure on one location (bad name, page hiccup) must not abort the
         // remaining locations, so each location gets its own try/catch.
         try {
-          await page.goto('https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau#!')
-
-          // select tennis location
-          await page.locator('.tokens-input-text').pressSequentially(`${location} `)
-          await page.waitForSelector(`.tokens-suggestions-list-element >> text="${location}"`)
-          await page.click(`.tokens-suggestions-list-element >> text="${location}"`)
-
-          // The suggestions dropdown sometimes stays open after the click and
-          // swallows the clicks aimed at the date picker (13/09 run: 90s lost
-          // retrying the date click). Make sure it is gone before moving on.
-          const suggestionsList = page.locator('.tokens-suggestions-list-element').first()
-          await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
-            await page.keyboard.press('Escape')
-            await suggestionsList.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {})
-          })
-
-          // select date
-          await page.click('#when')
-          await page.waitForSelector(`[dateiso="${date.format('DD/MM/YYYY')}"]`)
-          await page.click(`[dateiso="${date.format('DD/MM/YYYY')}"]`)
-          await page.waitForSelector('.date-picker', { state: 'hidden' })
+          if (preloadReady && i === 0 && date === dates[0]) {
+            preloadReady = false
+            if (!preloadDateSelected) {
+              // The picker was left open on the pre-filled page; the freshly
+              // released date should be offered now. If it still is not,
+              // redo the form from scratch.
+              const quickPick = await page.click(`[dateiso="${date.format('DD/MM/YYYY')}"]`, { timeout: 3000 })
+                .then(() => page.waitForSelector('.date-picker', { state: 'hidden', timeout: 3000 }))
+                .then(() => true)
+                .catch(() => false)
+              if (!quickPick) {
+                await fillSearchForm(location, date)
+              }
+            }
+          } else {
+            await fillSearchForm(location, date)
+          }
 
           await page.click('#rechercher')
 
