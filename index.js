@@ -250,11 +250,18 @@ const bookTennis = async () => {
           // wait until the results page is fully loaded before continue
           await page.waitForLoadState('domcontentloaded')
 
+          // The slot panels are rendered after page load: scanning right at
+          // domcontentloaded can see an empty page while the diagnostic a
+          // second later lists the very slots the loop missed. Wait for the
+          // rows to appear (no rows after 5s = genuinely nothing offered).
+          await page.waitForSelector('[datedeb]', { timeout: 5000 }).catch(() => {})
+
           let selectedHour
           hoursLoop:
           for (const hour of config.hours) {
             const dateDeb = `[datedeb="${date.format('YYYY/MM/DD')} ${hour}:00:00"]`
             if (await page.locator(dateDeb).count()) {
+              console.log(`${dayjs().format()} - ${await page.locator(dateDeb).count()} slot element(s) displayed at ${hour}h for ${logLocation}`)
               if (await page.isHidden(dateDeb)) {
                 await page.click(`#head${location.replaceAll(' ', '')}${hour}h .panel-title`)
               }
