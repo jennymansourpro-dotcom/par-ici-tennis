@@ -125,8 +125,11 @@ const bookTennis = async () => {
 
   console.log(`${dayjs().format()} - Browser started`)
   const page = await browser.newPage()
-  await page.route('https://captcha.liveidentity.com/captcha/public/frontend/api/v3/captcha-invisible/invisible-captcha-infos', (route) => route.abort())
-  await page.route('https://captcha.liveidentity.com/captcha/public/frontend/api/v3/captchas**', (route) => route.abort())
+  // Note: the upstream project blocked the site's invisible-captcha requests
+  // here. That circumvented an explicit anti-robot protection of
+  // tennis.paris.fr, so it was removed (see the project's agent rules): the
+  // captcha now loads normally, and if the site challenges or blocks the
+  // session the script fails cleanly instead of working around it.
   page.setDefaultTimeout(90000)
   await page.goto('https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=tennis&view=start&full=1')
 
@@ -292,6 +295,15 @@ const bookTennis = async () => {
             }
           }
 
+          // The book click navigates to the reservation page: give it time to
+          // load before concluding the slot was lost (18/09: a Jandelle 21h
+          // slot was dropped 0.4s after the click, title not yet changed).
+          if (selectedHour) {
+            for (let waited = 0; waited < 10000 && await page.title() !== 'Paris | TENNIS - Reservation'; waited += 500) {
+              await page.waitForTimeout(500)
+            }
+          }
+
           if (await page.title() !== 'Paris | TENNIS - Reservation') {
             console.log(`${dayjs().format()} - Failed to find reservation for ${logLocation}`)
             // Diagnostic: list the bookable slots the site actually displayed,
@@ -341,11 +353,18 @@ const bookTennis = async () => {
           await submit.click()
 
           // Paid bookings land on a .confirmReservation page; free ("Gratuité")
-          // bookings land on a recap page with a cancel button instead.
+          // bookings land on a recap page with a cancel button instead. Bound
+          // the wait: staying on methode_paiement means the payment could not
+          // be completed (18/09: 90s burned there while a free Jandelle slot
+          // was still available), most likely because the account holds no
+          // "carnet de réservation" for paid courts.
           await page.locator('.confirmReservation')
             .or(page.getByText('Annuler ma réservation'))
             .first()
-            .waitFor()
+            .waitFor({ timeout: 20000 })
+            .catch(() => {
+              throw new Error('No confirmation after payment submission — the account likely has no "carnet de réservation" for paid courts')
+            })
 
           // Extract reservation details, falling back to known values on the
           // free-booking recap page whose markup differs.
