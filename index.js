@@ -7,7 +7,7 @@ import { writeFileSync } from 'fs'
 import { createEvent } from 'ics'
 import { config } from './staticFiles.js'
 import { notify } from './lib/ntfy.js'
-import { sendInvite } from './lib/email.js'
+import { sendInvite, sendAlert } from './lib/email.js'
 
 dayjs.extend(customParseFormat)
 dayjs.extend(utc)
@@ -220,6 +220,33 @@ const bookTennis = async () => {
     await waitUntilParis(8, 0)
   }
 
+  // tennis.paris.fr protects booking with an explicit anti-robot check, which
+  // this script must not circumvent. When a matching slot is found but the
+  // booking page never opens, warn Jenny at once so she can book it by hand.
+  let manualAlertSent = false
+  const alertManualBookingNeeded = async ({ location, date, hour, blocked }) => {
+    if (manualAlertSent || DRY_RUN_MODE) return
+    manualAlertSent = true
+    const emailConfig = config.email || {}
+    const sender = emailConfig.from || process.env.SMTP_USER || process.env.GMAIL_USER
+    const when = `${date.format('DD/MM/YYYY')} à ${hour}h`
+    await sendAlert({
+      from: sender,
+      to: sender,
+      subject: `Tennis : créneau libre à réserver à la main (${when})`,
+      text: [
+        `Un court est libre : ${location}, le ${when}.`,
+        '',
+        blocked
+          ? 'La réservation automatique a été arrêtée par la vérification anti-robot du site.'
+          : 'La page de réservation ne s\'est pas ouverte après le clic.',
+        'Ce contrôle n\'est pas contourné : la réservation doit être faite à la main.',
+        '',
+        'https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau',
+      ].join('\n'),
+    })
+  }
+
   try {
     datesLoop:
     for (const date of dates) {
@@ -312,6 +339,18 @@ const bookTennis = async () => {
               .evaluateAll(els => [...new Set(els.map(el => el.getAttribute('datedeb')))])
               .catch(() => [])
             console.log(`Slots displayed by the site: ${offered.length > 0 ? offered.join(' | ') : 'none'}`)
+
+            // A slot was clicked but the booking page never opened. Since the
+            // anti-robot check is no longer bypassed (19-21/09), every such
+            // click stalls here. Record where it stopped, tell Jenny so she can
+            // book by hand, and stop instead of tripping the check again.
+            if (selectedHour) {
+              const bodyText = await page.locator('body').innerText().catch(() => '')
+              const blocked = /vérification de sécurité|bloquons les robots|blacklist|captcha/i.test(bodyText)
+              console.log(`Booking click did not open the reservation page: "${await page.title().catch(() => '?')}" ${page.url()}${blocked ? ' - anti-robot check detected' : ''}`)
+              await alertManualBookingNeeded({ location, date, hour: selectedHour, blocked })
+              break datesLoop
+            }
             continue
           }
 
