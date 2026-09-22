@@ -361,6 +361,25 @@ const bookTennis = async () => {
                 .slice(0, 3)
                 .join(' | ')
               console.log(`After the failed click: ${stillListed} slot element(s) still listed at ${selectedHour}h, ${notice ? `page notice: ${notice}` : 'no notice on the page'}`)
+              // The page reports "Complet - Pas de disponibilite" while the
+              // slot stays listed: dump how each element for that hour is
+              // marked, to tell bookable rows from full ones.
+              const rows = await page
+                .locator(`[datedeb="${date.format('YYYY/MM/DD')} ${selectedHour}:00:00"]`)
+                .evaluateAll(els => els.slice(0, 5).map((el) => {
+                   
+                  const row = el.closest('.row.tennis-court') || el.parentElement
+                  return [
+                    `tag=${el.tagName}`,
+                    `class="${el.className}"`,
+                    `disabled=${el.hasAttribute('disabled')}`,
+                    `visible=${el.offsetParent !== null}`,
+                    `text="${(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`,
+                    `row="${row ? (row.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 90) : '?'}"`,
+                  ].join(' ')
+                }))
+                .catch(() => [])
+              rows.forEach((r, i) => console.log(`  slot[${i}] ${r}`))
               await alertManualBookingNeeded({ location, date, hour: selectedHour, blocked })
               break datesLoop
             }
