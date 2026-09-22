@@ -348,6 +348,19 @@ const bookTennis = async () => {
               const bodyText = await page.locator('body').innerText().catch(() => '')
               const blocked = /vérification de sécurité|bloquons les robots|blacklist|captcha/i.test(bodyText)
               console.log(`Booking click did not open the reservation page: "${await page.title().catch(() => '?')}" ${page.url()}${blocked ? ' - anti-robot check detected' : ''}`)
+              // Tell a lost race apart from a silent refusal: if the slot is
+              // gone from the page, someone booked it first; if it is still
+              // listed with no message, the submission was simply ignored.
+              const stillListed = await page
+                .locator(`[datedeb="${date.format('YYYY/MM/DD')} ${selectedHour}:00:00"]`)
+                .count()
+                .catch(() => 0)
+              const notice = (await page.locator('.alert, .error, .message, .notification').allInnerTexts().catch(() => []))
+                .map(t => t.replace(/\s+/g, ' ').trim())
+                .filter(Boolean)
+                .slice(0, 3)
+                .join(' | ')
+              console.log(`After the failed click: ${stillListed} slot element(s) still listed at ${selectedHour}h, ${notice ? `page notice: ${notice}` : 'no notice on the page'}`)
               await alertManualBookingNeeded({ location, date, hour: selectedHour, blocked })
               break datesLoop
             }
