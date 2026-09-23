@@ -143,6 +143,18 @@ const bookTennis = async () => {
   // wait for login redirection before continue
   await page.waitForSelector('.main-informations')
 
+  // The site allows a single active reservation per account, and refuses
+  // every booking click while one is held. Report what the account already
+  // has, so a silent refusal later is not mistaken for a site problem.
+  const accountLines = (await page.locator('.main-informations').innerText().catch(() => ''))
+    .split('\n')
+    .map(l => l.replace(/\s+/g, ' ').trim())
+    .filter(l => /r\u00e9servation|court|annuler/i.test(l))
+    .slice(0, 8)
+  console.log(accountLines.length > 0
+    ? `${dayjs().format()} - Account currently shows: ${accountLines.join(' | ')}`
+    : `${dayjs().format()} - Account shows no current reservation`)
+
   const locations = !Array.isArray(config.locations) ? Object.keys(config.locations) : config.locations
 
   // Fill the search form (location + date), leaving only the "Rechercher"
@@ -380,6 +392,9 @@ const bookTennis = async () => {
                 }))
                 .catch(() => [])
               rows.forEach((r, i) => console.log(`  slot[${i}] ${r}`))
+              if (rows.some(r => r.includes('buttonHasReservation'))) {
+                console.log('  -> the site marks these buttons "buttonHasReservation": the account already holds an active reservation, which blocks any new booking until it is cancelled or played')
+              }
               await alertManualBookingNeeded({ location, date, hour: selectedHour, blocked })
               break datesLoop
             }
