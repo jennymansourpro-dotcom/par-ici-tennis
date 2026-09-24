@@ -155,6 +155,10 @@ const bookTennis = async () => {
     ? `${dayjs().format()} - Account currently shows: ${accountLines.join(' | ')}`
     : `${dayjs().format()} - Account summary block lists no reservation`)
 
+  // Remember any reservation the account already holds: it blocks every new
+  // booking, so the alert must say that rather than "book it by hand".
+  let heldReservation = null
+
   // That block does not actually list reservations, so follow the account's
   // own "Mes reservations" link and report what it holds. Read-only, and it
   // runs at 07:55, well before the release.
@@ -169,8 +173,11 @@ const bookTennis = async () => {
     const held = (await page.locator('body').innerText().catch(() => ''))
       .split('\n')
       .map(l => l.replace(/\s+/g, ' ').trim())
-      .filter(l => /court|annuler|\d{2}\/\d{2}\/\d{4}|aucune/i.test(l))
+      .filter(l => /court|annuler|\d{1,2}\s+\w+\s+20\d{2}|\d{2}h|\d{2}\/\d{2}\/\d{4}|aucune/i.test(l))
       .slice(0, 10)
+    if (held.some(l => /annuler/i.test(l))) {
+      heldReservation = held.filter(l => !/annuler/i.test(l)).join(' - ') || held.join(' - ')
+    }
     console.log(`${dayjs().format()} - Reservations page says: ${held.length > 0 ? held.join(' | ') : '(nothing matched)'}`)
   } else {
     console.log(`${dayjs().format()} - No reservations link found on the account page`)
@@ -270,10 +277,11 @@ const bookTennis = async () => {
       text: [
         `Un court est libre : ${location}, le ${when}.`,
         '',
-        blocked
-          ? 'La réservation automatique a été arrêtée par la vérification anti-robot du site.'
-          : 'La page de réservation ne s\'est pas ouverte après le clic.',
-        'Ce contrôle n\'est pas contourné : la réservation doit être faite à la main.',
+        heldReservation
+          ? `Le compte détient déjà une réservation active (${heldReservation}). Le site refuse toute nouvelle réservation tant qu'elle n'est pas annulée ou jouée - y compris à la main.`
+          : blocked
+            ? 'La réservation automatique a été arrêtée par la vérification anti-robot du site.'
+            : 'La page de réservation ne s\'est pas ouverte après le clic.',
         '',
         'https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau',
       ].join('\n'),
