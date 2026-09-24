@@ -153,7 +153,28 @@ const bookTennis = async () => {
     .slice(0, 8)
   console.log(accountLines.length > 0
     ? `${dayjs().format()} - Account currently shows: ${accountLines.join(' | ')}`
-    : `${dayjs().format()} - Account shows no current reservation`)
+    : `${dayjs().format()} - Account summary block lists no reservation`)
+
+  // That block does not actually list reservations, so follow the account's
+  // own "Mes reservations" link and report what it holds. Read-only, and it
+  // runs at 07:55, well before the release.
+  const reservationsUrl = await page.locator('a')
+    .evaluateAll((els) => {
+      const link = els.find(a => /r[\u00e9e]servation/i.test(a.textContent || '') && a.href && !/deconnexion/i.test(a.href))
+      return link ? link.href : null
+    })
+    .catch(() => null)
+  if (reservationsUrl) {
+    await page.goto(reservationsUrl).catch(() => {})
+    const held = (await page.locator('body').innerText().catch(() => ''))
+      .split('\n')
+      .map(l => l.replace(/\s+/g, ' ').trim())
+      .filter(l => /court|annuler|\d{2}\/\d{2}\/\d{4}|aucune/i.test(l))
+      .slice(0, 10)
+    console.log(`${dayjs().format()} - Reservations page says: ${held.length > 0 ? held.join(' | ') : '(nothing matched)'}`)
+  } else {
+    console.log(`${dayjs().format()} - No reservations link found on the account page`)
+  }
 
   const locations = !Array.isArray(config.locations) ? Object.keys(config.locations) : config.locations
 
