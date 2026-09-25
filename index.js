@@ -264,7 +264,7 @@ const bookTennis = async () => {
   // this script must not circumvent. When a matching slot is found but the
   // booking page never opens, warn Jenny at once so she can book it by hand.
   let manualAlertSent = false
-  const alertManualBookingNeeded = async ({ location, date, hour, blocked }) => {
+  const alertManualBookingNeeded = async ({ location, date, hour, blocked, captcha }) => {
     if (manualAlertSent || DRY_RUN_MODE) return
     manualAlertSent = true
     const emailConfig = config.email || {}
@@ -277,11 +277,13 @@ const bookTennis = async () => {
       text: [
         `Un court est libre : ${location}, le ${when}.`,
         '',
-        heldReservation
-          ? `Le compte détient déjà une réservation active (${heldReservation}). Le site refuse toute nouvelle réservation tant qu'elle n'est pas annulée ou jouée - y compris à la main.`
-          : blocked
-            ? 'La réservation automatique a été arrêtée par la vérification anti-robot du site.'
-            : 'La page de réservation ne s\'est pas ouverte après le clic.',
+        captcha
+          ? 'Le site demande une vérification anti-robot pour valider la réservation. Ce contrôle n\'est pas contourné : connecte-toi et termine la réservation à la main, le créneau est réellement disponible.'
+          : heldReservation
+            ? `Le compte détient déjà une réservation active (${heldReservation}). Le site refuse toute nouvelle réservation tant qu'elle n'est pas annulée ou jouée - y compris à la main.`
+            : blocked
+              ? 'La réservation automatique a été arrêtée par la vérification anti-robot du site.'
+              : 'La page de réservation ne s\'est pas ouverte après le clic.',
         '',
         'https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau',
       ].join('\n'),
@@ -372,6 +374,16 @@ const bookTennis = async () => {
             }
           }
 
+          // The site answers the booking click with its anti-robot check
+          // (view=return_reservation_captcha). It must not be solved or worked
+          // around, so report the slot - it is genuinely free - and stop,
+          // rather than wait 90s for a page that will never come.
+          if (page.url().includes('return_reservation_captcha')) {
+            console.log(`${dayjs().format()} - Security check shown after the booking click: ${logLocation} at ${selectedHour}h on ${date.format('DD/MM/YYYY')} must be booked by hand`)
+            await alertManualBookingNeeded({ location, date, hour: selectedHour, captcha: true })
+            break datesLoop
+          }
+
           if (await page.title() !== 'Paris | TENNIS - Reservation') {
             console.log(`${dayjs().format()} - Failed to find reservation for ${logLocation}`)
             // Diagnostic: list the bookable slots the site actually displayed,
@@ -430,7 +442,7 @@ const bookTennis = async () => {
             continue
           }
 
-          await page.waitForSelector('.order-steps-infos h2 >> text="1 / 3 - Validation du court"')
+          await page.waitForSelector('.order-steps-infos h2 >> text="1 / 3 - Validation du court"', { timeout: 30000 })
 
           for (const [i, player] of config.players.entries()) {
             if (i > 0) {
